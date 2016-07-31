@@ -136,7 +136,7 @@ if __name__ == '__main__':
     birthday_mgr = BirthdayManager(main_db)
 
     time_now = datetime.datetime.now()
-    delta = datetime.timedelta(14)
-    time_later = time_now + delta
-    print time_now
-    print time_later
+    date = datetime.datetime.strptime('31.07.2016', '%d.%m.%Y')
+    diff = (date - time_now).days
+
+    print diff
