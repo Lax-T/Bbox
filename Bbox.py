@@ -186,9 +186,12 @@ class MainWindow(QMainWindow):
         locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
         self.update_person_list()
         self.update_events_list()
+        self.notify_thread = NotifyThread(self.birthday_manager)
+        self.notify_thread.start()
 
         QtCore.QObject.connect(self.pushButton_2, QtCore.SIGNAL('clicked()'), self.minimize_button)
         QtCore.QObject.connect(self.tray_action_restore, QtCore.SIGNAL('triggered()'), self.tray_restore)
+        QtCore.QObject.connect(self.tray_action_show, QtCore.SIGNAL('triggered()'), self.tray_show)
         QtCore.QObject.connect(self.pushButton_8, QtCore.SIGNAL('clicked()'), self.about_button)
         QtCore.QObject.connect(self.pushButton_4, QtCore.SIGNAL('clicked()'), self.add_person_button)
         QtCore.QObject.connect(self.pushButton_5, QtCore.SIGNAL('clicked()'), self.edit_person_button)
@@ -259,6 +262,28 @@ class MainWindow(QMainWindow):
         event_list_model = ListModel(list_data, '')
         self.listView.setModel(event_list_model)
 
+    def tray_show(self):
+        notify_list = self.birthday_manager.get_next_birthdays()
+        date_now = datetime.datetime.now()
+        for name in notify_list:
+
+            date, gift = self.birthday_manager.get_person_details(name)
+            days_left = (datetime.datetime.strptime('%s.%s.%s' % (date.day, date.month, date_now.year),
+                                                    '%d.%m.%Y') - date_now).days
+            if days_left == 0:
+                days_left_string = 'tomorrow'
+            elif days_left > 0:
+                days_left_string = 'in %s days' % (days_left + 1)
+            else:
+                days_left_string = 'today'
+
+            notification = pynotify.Notification("%s birthday %s!" % (name, days_left_string),
+                                                 "%s (%s) it's %s birthday!\nCheck Bbox for details."
+                                                 % (days_left_string.capitalize(),
+                                                    date.strftime('%d %b'), name))
+            notification.set_timeout(12000)
+            notification.show()
+
 
 class ListModel(QAbstractListModel):  # Modified but 80% class code from internet
     def __init__(self, datain, headerdata, parent=None, *args):
@@ -281,6 +306,56 @@ class ListModel(QAbstractListModel):  # Modified but 80% class code from interne
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.header_data[col])
         return QVariant()
+
+
+class NotifyThread(QThread):
+    def __init__(self, birthday_manager):
+        QThread.__init__(self)
+        self.birthday_manager = birthday_manager
+        self.notify_period = 2
+        self.notify_times_limit = 100
+        self.notify_times_count = 0
+        self.notify_period_counter = self.notify_period
+        self.notify_list = self.birthday_manager.get_next_birthdays()
+        pynotify.init("Basics")
+        self.current_notify_period = datetime.datetime.now().day
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        while True:
+            if self.current_notify_period != datetime.datetime.now().day:  # New day update
+                self.current_notify_period = datetime.datetime.now().day
+                self.notify_times_count = 0
+                self.notify_period_counter = self.notify_period
+                self.notify_list = self.birthday_manager.get_next_birthdays()
+
+            if self.notify_times_count <= self.notify_times_limit:
+                self.notify_period_counter += 1
+                if self.notify_period_counter >= self.notify_period:
+                    self.notify_period_counter = 0
+                    date_now = datetime.datetime.now()
+                    for name in self.notify_list:
+
+                        date, gift = self.birthday_manager.get_person_details(name)
+                        days_left = (datetime.datetime.strptime('%s.%s.%s' % (date.day, date.month, date_now.year),
+                                                                '%d.%m.%Y') - date_now).days
+                        if days_left == 0:
+                            days_left_string = 'tomorrow'
+                        elif days_left > 0:
+                            days_left_string = 'in %s days' % (days_left + 1)
+                        else:
+                            days_left_string = 'today'
+
+                        notification = pynotify.Notification("%s birthday %s!" % (name, days_left_string),
+                                                             "%s (%s) it's %s birthday!\nCheck Bbox for details."
+                                                             % (days_left_string.capitalize(),
+                                                                date.strftime('%d %b'), name))
+                        notification.set_timeout(12000)
+                        notification.show()
+            self.sleep(60)
+
 
 
 if __name__ == '__main__':
