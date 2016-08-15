@@ -6,21 +6,21 @@ import bbox_db
 import bbox_ui
 import locale
 from PyQt4 import QtGui, QtCore
-from PyQt4.QtCore import QVariant, QAbstractListModel, Qt
+from PyQt4.QtCore import QVariant, QAbstractListModel, Qt, QThread
 from PyQt4.QtGui import QDialog, QMainWindow
-from PyQt4.QtCore import QThread
-
 
 DB_FILE_NAME = 'bbox_db.ini'
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
+
     def _fromUtf8(s):
         return s
 
 try:
     _encoding = QtGui.QApplication.UnicodeUTF8
+
     def _translate(context, text, disambig):
         return QtGui.QApplication.translate(context, text, disambig, _encoding)
 except AttributeError:
@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
         self.statusbar.setObjectName(_fromUtf8("statusbar"))
         self.setStatusBar(self.statusbar)
         self.pushButton.setText(_translate("MainWindow", "Edit gift", None))
-        self.label.setText(_translate("MainWindow", "Select event to see datails", None))
+        self.label.setText(_translate("MainWindow", "Select event to see details", None))
         self.label_2.setText(_translate("MainWindow", "Upcoming events", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Home", None))
         self.pushButton_4.setText(_translate("MainWindow", "Add date", None))
@@ -196,6 +196,10 @@ class MainWindow(QMainWindow):
         QtCore.QObject.connect(self.pushButton_4, QtCore.SIGNAL('clicked()'), self.add_person_button)
         QtCore.QObject.connect(self.pushButton_5, QtCore.SIGNAL('clicked()'), self.edit_person_button)
         QtCore.QObject.connect(self.pushButton_6, QtCore.SIGNAL('clicked()'), self.delete_person_button)
+        QtCore.QObject.connect(self.listView, QtCore.SIGNAL("clicked(QModelIndex)"), self.selected_in_event_list)
+        QtCore.QObject.connect(self.pushButton, QtCore.SIGNAL('clicked()'), self.edit_gift_button)
+        QtCore.QObject.connect(self.radioButton, QtCore.SIGNAL('released()'), self.update_person_list)
+        QtCore.QObject.connect(self.radioButton_2, QtCore.SIGNAL('released()'), self.update_person_list)
 
     def minimize_button(self):
         self.hide()
@@ -245,22 +249,67 @@ class MainWindow(QMainWindow):
         self.update_person_list()
         self.update_events_list()
 
+    def edit_gift_button(self):
+        selected_row = self.listView.currentIndex().row()
+        name = self.birthday_manager.get_next_birthdays()[selected_row]
+        date, gift = self.birthday_manager.get_person_details(name)
+        edit_gift_dialog = bbox_ui.EditGiftDialog(gift)
+        if edit_gift_dialog.exec_():
+            confirm_dialog = bbox_ui.ConfirmDialog('Save gift?')
+            if confirm_dialog.exec_():
+                self.birthday_manager.edit_person(oldname=name, gift=edit_gift_dialog.gift)
+                self.update_event_label(name)
+
+    def selected_in_event_list(self):
+        selected_row = self.listView.currentIndex().row()
+        name = self.birthday_manager.get_next_birthdays()[selected_row]
+        self.update_event_label(name)
+
+    def update_event_label(self, name):
+        date, gift = self.birthday_manager.get_person_details(name)
+        date_now = datetime.datetime.now()
+        days_left = (datetime.datetime.strptime('%s.%s.%s' % (date.day, date.month, date_now.year),
+                                                '%d.%m.%Y') - date_now).days
+        years_old = date_now.year - date.year
+
+        if days_left == 0:
+            days_left_string = 'Tomorrow'
+        elif days_left > 0:
+            days_left_string = 'In %s days' % (days_left + 1)
+        else:
+            days_left_string = 'Today'
+        if years_old == 1:
+            years_string = 'year'
+        else:
+            years_string = 'years'
+
+        self.label.setText("%s (%s) it's %s birthday!\nHe(she) is gonna be %s %s old.\n"
+                           "You are planning to give: %s" % (days_left_string, date.strftime('%d %b'),
+                                                             name, years_old, years_string, gift))
+
     def update_person_list(self):
-        person_list = self.birthday_manager.get_person_list()
         list_data = []
+        if self.radioButton.isChecked():
+            person_list = self.birthday_manager.get_person_list(sort_by='date')
+
+        else:
+            person_list = self.birthday_manager.get_person_list(sort_by='name')
+
         for person_data in person_list:
-            list_data.append('%s - %s' % (person_data[1].strftime('%d %b %Y'), person_data[0]))
+            list_data.append('%s  -  %s' % (person_data[1].strftime('%d %b %Y'), person_data[0]))
         person_list_model = ListModel(list_data, '')
         self.listView_2.setModel(person_list_model)
+        self.label.setText("Select event to see details")
 
     def update_events_list(self):
         event_list = self.birthday_manager.get_next_birthdays()
         list_data = []
         for name in event_list:
             date, gift = self.birthday_manager.get_person_details(name)
-            list_data.append('%s - %s' % (date.strftime('%d %b %Y'), name))
+            list_data.append('%s  -  %s' % (date.strftime('%d %b %Y'), name))
         event_list_model = ListModel(list_data, '')
         self.listView.setModel(event_list_model)
+        self.label.setText("Select event to see details")
 
     def tray_show(self):
         notify_list = self.birthday_manager.get_next_birthdays()
@@ -286,7 +335,7 @@ class MainWindow(QMainWindow):
 
 
 class ListModel(QAbstractListModel):  # Modified but 80% class code from internet
-    def __init__(self, datain, headerdata, parent=None, *args):
+    def __init__(self, datain, headerdata, parent=None):
 
         QAbstractListModel.__init__(self, parent)
         self.array_data = datain
@@ -337,7 +386,6 @@ class NotifyThread(QThread):
                     self.notify_period_counter = 0
                     date_now = datetime.datetime.now()
                     for name in self.notify_list:
-
                         date, gift = self.birthday_manager.get_person_details(name)
                         days_left = (datetime.datetime.strptime('%s.%s.%s' % (date.day, date.month, date_now.year),
                                                                 '%d.%m.%Y') - date_now).days
@@ -355,7 +403,6 @@ class NotifyThread(QThread):
                         notification.set_timeout(12000)
                         notification.show()
             self.sleep(60)
-
 
 
 if __name__ == '__main__':
