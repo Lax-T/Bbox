@@ -63,10 +63,10 @@ class BirthdayManager(object):
 
         person_list = []
         for name in sorted_names:
-                name_date_pair = []
-                name_date_pair.append(name)
-                name_date_pair.append(datetime.datetime.strptime(birthday_list[name]['date'], '%m.%d.%Y'))
-                person_list.append(name_date_pair)
+            name_date_pair = []
+            name_date_pair.append(name)
+            name_date_pair.append(datetime.datetime.strptime(birthday_list[name]['date'], '%m.%d.%Y'))
+            person_list.append(name_date_pair)
         return person_list
 
     def add_person(self, name, date, gift='No gift yet)'):
@@ -86,7 +86,7 @@ class BirthdayManager(object):
         if gift is None:
             gift = birthday_list[oldname]['gift']
 
-        if oldname == newname:
+        if oldname == newname or newname is None:
             birthday_list[oldname] = {'date': date,
                                       'gift': gift
                                       }
@@ -96,7 +96,6 @@ class BirthdayManager(object):
                                       'gift': gift
                                       }
         self.database.store_section('birthday_list', birthday_list)
-
 
     def get_person_details(self, name):
         birthday_list = self.database.get_section('birthday_list')
@@ -128,15 +127,22 @@ class BirthdayManager(object):
 class SettingsManager(object):
     def __init__(self, database):
         self.database = database
-        pass
+
+    def get_settings(self):
+        return self.database.get_section('settings')
+
+    def get_option(self, option):
+        settings = self.database.get_section('settings')
+        if option in settings.keys():
+            return settings[option]
+        else:
+            return None
+
+    def store_settings(self, settings):
+        self.database.store_section('settings', settings)
 
 
 if __name__ == '__main__':
     main_db = MainBD(DB_FILE_NAME)
     birthday_mgr = BirthdayManager(main_db)
-
-    time_now = datetime.datetime.now()
-    date = datetime.datetime.strptime('31.07.2016', '%d.%m.%Y')
-    diff = (date - time_now).days
-
-    print diff
+    settings_mgr = SettingsManager(main_db)
