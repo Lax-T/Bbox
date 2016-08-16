@@ -1,4 +1,6 @@
 
+# coding: utf8
+
 import sys
 import datetime
 import pynotify
@@ -11,14 +13,14 @@ from PyQt4.QtGui import QDialog, QMainWindow
 
 DB_FILE_NAME = 'bbox_db.ini'
 
-try:
+try:  # Code by QtDesigner
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
 
     def _fromUtf8(s):
         return s
 
-try:
+try:  # Code by QtDesigner
     _encoding = QtGui.QApplication.UnicodeUTF8
 
     def _translate(context, text, disambig):
@@ -28,7 +30,7 @@ except AttributeError:
         return QtGui.QApplication.translate(context, text, disambig)
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow):  # Part of the code by QtDesigner
     def __init__(self, database, parent=None):
         super(MainWindow, self).__init__(parent)
         self.database = database
