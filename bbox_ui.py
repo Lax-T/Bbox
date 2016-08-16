@@ -1,7 +1,6 @@
 
 # coding: utf8
 
-import datetime
 from PyQt4 import QtGui, QtCore
 from PyQt4.QtGui import QDialog
 
@@ -153,8 +152,9 @@ class EditPersonDialog(QDialog):
 
 
 class EditGiftDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, gift, parent=None):
         super(EditGiftDialog, self).__init__(parent)
+        self.gift = gift
         self.setObjectName(_fromUtf8("Dialog"))
         self.resize(360, 185)
         self.label = QtGui.QLabel(self)
@@ -170,7 +170,15 @@ class EditGiftDialog(QDialog):
         self.textEdit = QtGui.QTextEdit(self)
         self.textEdit.setGeometry(QtCore.QRect(10, 40, 340, 78))
         self.textEdit.setObjectName(_fromUtf8("textEdit"))
+        self.textEdit.setText('%s' % self.gift)
         self.setWindowTitle(_translate("Dialog", "Edit gift", None))
         self.label.setText(_translate("Dialog", "Gift", None))
         self.pushButton.setText(_translate("Dialog", "Save", None))
         self.pushButton_2.setText(_translate("Dialog", "Cancel", None))
+
+        QtCore.QObject.connect(self.pushButton, QtCore.SIGNAL('clicked()'), self.save_button)
+        QtCore.QObject.connect(self.pushButton_2, QtCore.SIGNAL('clicked()'), self.reject)
+
+    def save_button(self):
+        self.gift = str(self.textEdit.toPlainText())
+        self.accept()
