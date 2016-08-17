@@ -116,7 +116,7 @@ class BirthdayManager(object):
         future_date = (datetime.datetime.now() + datetime.timedelta(days_limit)).strftime('%m.%d')
         counter = 0
         for name in sorted_names:
-            if today_date <= birthday_list[name]['date'][0:4] <= future_date:
+            if today_date <= birthday_list[name]['date'][0:5] <= future_date:
                 next_birthdays_names.append(name)
                 counter += 1
                 if counter >= 25:
@@ -146,3 +146,9 @@ if __name__ == '__main__':
     main_db = MainBD(DB_FILE_NAME)
     birthday_mgr = BirthdayManager(main_db)
     settings_mgr = SettingsManager(main_db)
+
+    time_now = datetime.datetime.now()
+    date = datetime.datetime.strptime('31.07.2016', '%d.%m.%Y')
+    diff = (date - time_now).days
+    print settings_mgr.get_settings()
+    print settings_mgr.get_option('minimized')
