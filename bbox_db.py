@@ -146,9 +146,3 @@ if __name__ == '__main__':
     main_db = MainBD(DB_FILE_NAME)
     birthday_mgr = BirthdayManager(main_db)
     settings_mgr = SettingsManager(main_db)
-
-    time_now = datetime.datetime.now()
-    date = datetime.datetime.strptime('31.07.2016', '%d.%m.%Y')
-    diff = (date - time_now).days
-    print settings_mgr.get_settings()
-    print settings_mgr.get_option('minimized')
