@@ -116,7 +116,7 @@ class BirthdayManager(object):
         future_date = (datetime.datetime.now() + datetime.timedelta(days_limit)).strftime('%m.%d')
         counter = 0
         for name in sorted_names:
-            if today_date <= birthday_list[name]['date'][0:4] <= future_date:
+            if today_date <= birthday_list[name]['date'][0:5] <= future_date:
                 next_birthdays_names.append(name)
                 counter += 1
                 if counter >= 25:

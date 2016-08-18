@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         super(MainWindow, self).__init__(parent)
         self.database = database
         self.birthday_manager = bbox_db.BirthdayManager(self.database)
-        self.setting_manager = bbox_db.SettingsManager(self.database)
+        self.settings_manager = bbox_db.SettingsManager(self.database)
         self.setObjectName(_fromUtf8("MainWindow"))
         self.window_icon = QtGui.QIcon('launcher.png')
         self.setWindowIcon(self.window_icon)
@@ -116,9 +116,13 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.spinBox = QtGui.QSpinBox(self.tab_3)
         self.spinBox.setGeometry(QtCore.QRect(30, 90, 60, 27))
         self.spinBox.setObjectName(_fromUtf8("spinBox"))
+        self.spinBox.setMinimum(1)
+        self.spinBox.setMaximum(99)
         self.spinBox_2 = QtGui.QSpinBox(self.tab_3)
         self.spinBox_2.setGeometry(QtCore.QRect(30, 140, 60, 27))
         self.spinBox_2.setObjectName(_fromUtf8("spinBox_2"))
+        self.spinBox_2.setMinimum(1)
+        self.spinBox_2.setMaximum(99)
         self.checkBox = QtGui.QCheckBox(self.tab_3)
         self.checkBox.setGeometry(QtCore.QRect(30, 200, 103, 22))
         self.checkBox.setObjectName(_fromUtf8("checkBox"))
@@ -136,6 +140,8 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.spinBox_3 = QtGui.QSpinBox(self.tab_3)
         self.spinBox_3.setGeometry(QtCore.QRect(30, 40, 60, 27))
         self.spinBox_3.setObjectName(_fromUtf8("spinBox_3"))
+        self.spinBox_3.setMinimum(1)
+        self.spinBox_3.setMaximum(60)
         self.label_7 = QtGui.QLabel(self.tab_3)
         self.label_7.setGeometry(QtCore.QRect(100, 45, 208, 17))
         self.label_7.setTextInteractionFlags(QtCore.Qt.NoTextInteraction)
@@ -157,7 +163,7 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.label.setText(_translate("MainWindow", "Select event to see details", None))
         self.label_2.setText(_translate("MainWindow", "Upcoming events", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Home", None))
-        self.pushButton_4.setText(_translate("MainWindow", "Add date", None))
+        self.pushButton_4.setText(_translate("MainWindow", "Add person", None))
         self.pushButton_5.setText(_translate("MainWindow", "Edit", None))
         self.pushButton_6.setText(_translate("MainWindow", "Remove", None))
         self.label_3.setText(_translate("MainWindow", "Birthday list", None))
@@ -186,10 +192,15 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.tray_icon.setContextMenu(self.tray_menu)
 
         locale.setlocale(locale.LC_TIME, 'en_US.UTF-8')
+        self.reset_settings_button()
         self.update_person_list()
         self.update_events_list()
-        self.notify_thread = NotifyThread(self.birthday_manager)
+        self.notify_thread = NotifyThread(self.birthday_manager, self.settings_manager)
         self.notify_thread.start()
+        if self.settings_manager.get_option('minimized'):
+            self.minimize_button()
+        else:
+            self.show()
 
         QtCore.QObject.connect(self.pushButton_2, QtCore.SIGNAL('clicked()'), self.minimize_button)
         QtCore.QObject.connect(self.tray_action_restore, QtCore.SIGNAL('triggered()'), self.tray_restore)
@@ -202,6 +213,8 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         QtCore.QObject.connect(self.pushButton, QtCore.SIGNAL('clicked()'), self.edit_gift_button)
         QtCore.QObject.connect(self.radioButton, QtCore.SIGNAL('released()'), self.update_person_list)
         QtCore.QObject.connect(self.radioButton_2, QtCore.SIGNAL('released()'), self.update_person_list)
+        QtCore.QObject.connect(self.pushButton_7, QtCore.SIGNAL('clicked()'), self.reset_settings_button)
+        QtCore.QObject.connect(self.pushButton_3, QtCore.SIGNAL('clicked()'), self.apply_settings_button)
 
     def minimize_button(self):
         self.hide()
@@ -253,7 +266,8 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
 
     def edit_gift_button(self):
         selected_row = self.listView.currentIndex().row()
-        name = self.birthday_manager.get_next_birthdays()[selected_row]
+        name = self.birthday_manager.get_next_birthdays(days_limit=self.settings_manager
+                                                        .get_option('days_left'))[selected_row]
         date, gift = self.birthday_manager.get_person_details(name)
         edit_gift_dialog = bbox_ui.EditGiftDialog(gift)
         if edit_gift_dialog.exec_():
@@ -262,9 +276,26 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
                 self.birthday_manager.edit_person(oldname=name, gift=edit_gift_dialog.gift)
                 self.update_event_label(name)
 
+    def reset_settings_button(self):
+        settings = self.settings_manager.get_settings()
+        self.spinBox.setValue(settings['remind_times'])
+        self.spinBox_2.setValue(settings['remind_every_min'])
+        self.spinBox_3.setValue(settings['days_left'])
+        self.checkBox.setChecked(settings['auto_start'])
+        self.checkBox_2.setChecked(settings['minimized'])
+
+    def apply_settings_button(self):
+        confirm_dialog = bbox_ui.ConfirmDialog('Save settings?')
+        if confirm_dialog.exec_():
+            settings = {'remind_times': self.spinBox.value(), 'remind_every_min': self.spinBox_2.value(),
+                        'days_left': self.spinBox_3.value(), 'auto_start': self.checkBox.isChecked(),
+                        'minimized': self.checkBox_2.isChecked()}
+            self.settings_manager.store_settings(settings)
+
     def selected_in_event_list(self):
         selected_row = self.listView.currentIndex().row()
-        name = self.birthday_manager.get_next_birthdays()[selected_row]
+        name = self.birthday_manager.get_next_birthdays(days_limit=self.settings_manager
+                                                        .get_option('days_left'))[selected_row]
         self.update_event_label(name)
 
     def update_event_label(self, name):
@@ -304,7 +335,7 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.label.setText("Select event to see details")
 
     def update_events_list(self):
-        event_list = self.birthday_manager.get_next_birthdays()
+        event_list = self.birthday_manager.get_next_birthdays(days_limit=self.settings_manager.get_option('days_left'))
         list_data = []
         for name in event_list:
             date, gift = self.birthday_manager.get_person_details(name)
@@ -314,7 +345,7 @@ class MainWindow(QMainWindow):  # Part of the code by QtDesigner
         self.label.setText("Select event to see details")
 
     def tray_show(self):
-        notify_list = self.birthday_manager.get_next_birthdays()
+        notify_list = self.birthday_manager.get_next_birthdays(days_limit=self.settings_manager.get_option('days_left'))
         date_now = datetime.datetime.now()
         for name in notify_list:
 
@@ -360,14 +391,15 @@ class ListModel(QAbstractListModel):  # Modified but 80% class code from interne
 
 
 class NotifyThread(QThread):
-    def __init__(self, birthday_manager):
+    def __init__(self, birthday_manager, settings_manager):
         QThread.__init__(self)
         self.birthday_manager = birthday_manager
-        self.notify_period = 2
-        self.notify_times_limit = 100
+        self.notify_period = settings_manager.get_option('remind_every_min')
+        self.notify_times_limit = settings_manager.get_option('remind_times')
+        self.days_left_limit = settings_manager.get_option('days_left')
         self.notify_times_count = 0
         self.notify_period_counter = self.notify_period
-        self.notify_list = self.birthday_manager.get_next_birthdays()
+        self.notify_list = self.birthday_manager.get_next_birthdays(days_limit=self.days_left_limit)
         pynotify.init("Basics")
         self.current_notify_period = datetime.datetime.now().day
 
@@ -380,7 +412,7 @@ class NotifyThread(QThread):
                 self.current_notify_period = datetime.datetime.now().day
                 self.notify_times_count = 0
                 self.notify_period_counter = self.notify_period
-                self.notify_list = self.birthday_manager.get_next_birthdays()
+                self.notify_list = self.birthday_manager.get_next_birthdays(days_limit=self.days_left_limit)
 
             if self.notify_times_count <= self.notify_times_limit:
                 self.notify_period_counter += 1
@@ -411,5 +443,4 @@ if __name__ == '__main__':
     main_database = bbox_db.MainBD(DB_FILE_NAME)
     app = QtGui.QApplication(sys.argv)
     main_window = MainWindow(main_database)
-    main_window.show()
     sys.exit(app.exec_())
